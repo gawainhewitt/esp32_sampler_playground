@@ -4,7 +4,7 @@
 void debugInit() {
     if (ENABLE_SERIAL_DEBUG) {
         Serial.begin(115200);
-        while (!Serial) { ; }  // Wait for serial port to connect
+        delay(1000);
         Serial.println("Starting Distance-to-Audio project...");
     }
 }

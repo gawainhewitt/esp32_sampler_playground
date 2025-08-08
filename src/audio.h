@@ -1,16 +1,12 @@
 #pragma once
 
+#include "constants.h"
 #include "AudioFileSourceSD.h"
 #include "AudioGeneratorMP3.h"
 #include "AudioGeneratorWAV.h"
 #include "AudioOutputI2S.h"
 #include "AudioOutputMixer.h"
 #include "AudioFileSourceBuffer.h"
-
-// I2S pins for UDA1334A
-#define I2S_BCLK_PIN 42
-#define I2S_WCLK_PIN 2
-#define I2S_DOUT_PIN 41
 
 // Audio files
 #define MP3_FILE "/sault.mp3"
@@ -39,12 +35,13 @@ extern AudioGeneratorWAV *wavGenerator;
 
 // Timing and state
 extern unsigned long lastWavTime;
-extern const unsigned long WAV_INTERVAL; // Play WAV every 8 seconds
 extern bool mp3Playing;
 extern bool wavPlaying;
 
 // Task handles for dual-core processing
 extern TaskHandle_t audioTaskHandle;
+
+extern bool mp3ShouldLoop;
 
 // Function prototypes
 void verifyAudioFiles();
@@ -56,3 +53,5 @@ void audioProcessingTask(void *parameter);
 void restartMP3();
 void cleanupMP3();
 void cleanupWAV();
+void setMP3Looping(bool shouldLoop);
+

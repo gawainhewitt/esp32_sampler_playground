@@ -26,6 +26,9 @@ bool wavPlaying = false;
 // Task handles for dual-core processing
 TaskHandle_t audioTaskHandle;
 
+bool mp3ShouldLoop = false; 
+
+
 void verifyAudioFiles() {
     // Verify audio files exist
     if (!SD.exists(MP3_FILE)) {
@@ -164,12 +167,17 @@ void audioProcessingTask(void *parameter) {
     // Process MP3 background music
     if (mp3Playing && mp3Generator && mp3Generator->isRunning()) {
       if (mp3Generator->loop()) {
-        audioActive = true;
-      } else {
-        // MP3 finished, restart it
-        debug_printf("MP3 finished, restarting... \n");
-        restartMP3();
-      }
+            audioActive = true;
+            } else {
+            // MP3 finished
+            if (mp3ShouldLoop) {
+                debug_printf("MP3 finished, restarting... \n");
+                restartMP3();
+            } else {
+                debug_printf("MP3 finished, not looping \n");
+                cleanupMP3();
+            }
+        }
     }
     
     // Process WAV sound effects
@@ -184,7 +192,7 @@ void audioProcessingTask(void *parameter) {
     }
     
     // If no audio is active, ensure MP3 is running
-    if (!audioActive && !mp3Playing) {
+    if (!audioActive && !mp3Playing && mp3ShouldLoop) {
       debug_printf("No audio active, restarting MP3... \n");
       startMP3Background();
     }
@@ -232,4 +240,9 @@ void cleanupWAV() {
     wavFileSource = nullptr;
   }
   wavPlaying = false;
+}
+
+void setMP3Looping(bool shouldLoop) {
+  mp3ShouldLoop = shouldLoop;
+  debug_printf("MP3 looping set to: %s \n", shouldLoop ? "true" : "false");
 }

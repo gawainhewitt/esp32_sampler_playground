@@ -2,6 +2,7 @@
 #include "sd_card.h"
 #include "audio.h"
 #include "debug_config.h"
+#include "constants.h"
 
 void setup() {
 
@@ -25,6 +26,9 @@ void setup() {
   
   // Create audio processing task on Core 1 (dedicated to audio)
   createAudioTask();
+
+  pinMode(BUTTON_PIN, INPUT_PULLUP);  // Using internal pullup resistor
+  debug_printf("Button initialized on pin %d \n", BUTTON_PIN);
   
   
   debug_printf("System ready!");
@@ -33,24 +37,41 @@ void setup() {
 }
 
 void loop() {
-  // Main loop handles timing and triggers
-  unsigned long currentTime = millis();
+  static bool lastButtonState = HIGH;
+  static unsigned long lastDebounceTime = 0;
+  static bool buttonPressed = false;
   
-  // Trigger WAV effect periodically
-  if (!wavPlaying && (currentTime - lastWavTime) >= WAV_INTERVAL) {
-    triggerWAVEffect();
-    lastWavTime = currentTime;
+  bool reading = digitalRead(BUTTON_PIN);
+  
+  // If button state changed, reset debounce timer
+  if (reading != lastButtonState) {
+    lastDebounceTime = millis();
   }
   
-  // Monitor system health
+  // If button has been stable for 10ms, it's a real press
+  if ((millis() - lastDebounceTime) > 10) {
+    if (reading == LOW && !buttonPressed) {
+      // Button just pressed
+      buttonPressed = true;
+      if (!wavPlaying) {
+        triggerWAVEffect();
+      }
+    } else if (reading == HIGH) {
+      buttonPressed = false;
+    }
+  }
+  
+  lastButtonState = reading;
+  
+  // Rest of your existing loop code...
   static unsigned long lastHealthCheck = 0;
-  if (currentTime - lastHealthCheck >= 10000) { // Every 10 seconds
+  unsigned long currentTime = millis();
+  if (currentTime - lastHealthCheck >= HEALTH_CHECK_INTERVAL) {
     debug_printf("Free PSRAM: %d bytes, Free Heap: %d bytes\n", 
                   ESP.getFreePsram(), ESP.getFreeHeap());
     lastHealthCheck = currentTime;
   }
   
-  delay(100); // Main loop doesn't need to be fast
+  delay(MAIN_LOOP_DELAY); // Shorter delay for more responsive button reading
 }
-
 
