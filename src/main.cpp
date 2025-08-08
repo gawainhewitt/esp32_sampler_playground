@@ -1,0 +1,319 @@
+#include <Arduino.h>
+#include <SD.h>
+#include <SPI.h>
+#include "AudioFileSourceSD.h"
+#include "AudioGeneratorMP3.h"
+#include "AudioGeneratorWAV.h"
+#include "AudioOutputI2S.h"
+#include "AudioOutputMixer.h"
+#include "AudioFileSourceBuffer.h"
+
+// SD Card SPI pins
+#define SD_CS_PIN    10
+#define SD_MOSI_PIN  11
+#define SD_MISO_PIN  13
+#define SD_SCK_PIN   12
+
+// I2S pins for UDA1334A
+#define I2S_BCLK_PIN 42
+#define I2S_WCLK_PIN 2
+#define I2S_DOUT_PIN 41
+
+// Audio files
+#define MP3_FILE "/sault.mp3"
+#define WAV_FILE "/001Music.wav"
+
+// Large PSRAM buffers for smooth audio
+#define MP3_BUFFER_SIZE (256 * 1024)  // 128KB for MP3 (larger for continuous playback) ****I CHANGE THESE
+#define WAV_BUFFER_SIZE (128 * 1024)   // 64KB for WAV effects
+#define MIXER_BUFFER_SIZE 1024        // Mixer buffer size
+
+// Audio system objects
+AudioOutputI2S *i2s = nullptr;
+AudioOutputMixer *mixer = nullptr;
+AudioOutputMixerStub *mp3Channel = nullptr;
+AudioOutputMixerStub *wavChannel = nullptr;
+
+// MP3 background music (continuous)
+AudioFileSourceSD *mp3FileSource = nullptr;
+AudioFileSourceBuffer *mp3Buffer = nullptr;
+AudioGeneratorMP3 *mp3Generator = nullptr;
+
+// WAV sound effects (triggered)
+AudioFileSourceSD *wavFileSource = nullptr;
+AudioFileSourceBuffer *wavBuffer = nullptr;
+AudioGeneratorWAV *wavGenerator = nullptr;
+
+// Timing and state
+unsigned long lastWavTime = 0;
+const unsigned long WAV_INTERVAL = 8000; // Play WAV every 8 seconds
+bool mp3Playing = false;
+bool wavPlaying = false;
+
+// Task handles for dual-core processing
+TaskHandle_t audioTaskHandle;
+
+// Function prototypes
+void initializeAudioSystem();
+void startMP3Background();
+void triggerWAVEffect();
+void audioProcessingTask(void *parameter);
+void restartMP3();
+void cleanupMP3();
+void cleanupWAV();
+
+void setup() {
+  Serial.begin(115200);
+  delay(2000);
+  
+  Serial.println("\n=== ESP32-S3 Simultaneous Audio Player ===");
+  Serial.printf("Total PSRAM: %d bytes\n", ESP.getPsramSize());
+  Serial.printf("Free PSRAM: %d bytes\n", ESP.getFreePsram());
+  
+  // Initialize SD card with high-speed SPI
+  pinMode(SD_CS_PIN, OUTPUT);
+  digitalWrite(SD_CS_PIN, HIGH);
+  
+  SPI.begin(SD_SCK_PIN, SD_MISO_PIN, SD_MOSI_PIN);
+  if (!SD.begin(SD_CS_PIN, SPI, 25000000)) { // 25MHz SPI for fast SD access
+    Serial.println("SD Card initialization failed!");
+    while (1);
+  }
+  
+  Serial.println("SD Card initialized");
+  
+  // Verify audio files exist
+  if (!SD.exists(MP3_FILE)) {
+    Serial.printf("MP3 file %s not found!\n", MP3_FILE);
+    while(1);
+  }
+  if (!SD.exists(WAV_FILE)) {
+    Serial.printf("WAV file %s not found!\n", WAV_FILE);
+    while(1);
+  }
+  
+  Serial.println("Audio files verified");
+  
+  // Initialize audio system
+  initializeAudioSystem();
+  
+  // Start background MP3
+  startMP3Background();
+  
+  // Create audio processing task on Core 1 (dedicated to audio)
+  xTaskCreatePinnedToCore(
+    audioProcessingTask,
+    "AudioTask",
+    16384,        // Large stack for audio processing
+    NULL,
+    5,            // High priority
+    &audioTaskHandle,
+    1             // Pin to Core 1
+  );
+  
+  Serial.println("System ready!");
+  Serial.println("MP3 playing continuously, WAV effects every 8 seconds");
+}
+
+void loop() {
+  // Main loop handles timing and triggers
+  unsigned long currentTime = millis();
+  
+  // Trigger WAV effect periodically
+  if (!wavPlaying && (currentTime - lastWavTime) >= WAV_INTERVAL) {
+    triggerWAVEffect();
+    lastWavTime = currentTime;
+  }
+  
+  // Monitor system health
+  static unsigned long lastHealthCheck = 0;
+  if (currentTime - lastHealthCheck >= 10000) { // Every 10 seconds
+    Serial.printf("Free PSRAM: %d bytes, Free Heap: %d bytes\n", 
+                  ESP.getFreePsram(), ESP.getFreeHeap());
+    lastHealthCheck = currentTime;
+  }
+  
+  delay(100); // Main loop doesn't need to be fast
+}
+
+void initializeAudioSystem() {
+  Serial.println("Initializing audio system...");
+  
+  // Create I2S output
+  i2s = new AudioOutputI2S();
+  i2s->SetPinout(I2S_BCLK_PIN, I2S_WCLK_PIN, I2S_DOUT_PIN);
+  i2s->SetGain(0.2); // Master volume
+  
+  // Create mixer with larger buffer for smoother mixing
+  mixer = new AudioOutputMixer(MIXER_BUFFER_SIZE, i2s);
+  
+  // Create separate channels for MP3 and WAV
+  mp3Channel = mixer->NewInput();
+  mp3Channel->SetGain(0.6); // Background music volume
+  
+  wavChannel = mixer->NewInput();
+  wavChannel->SetGain(0.8); // Sound effects volume (louder)
+  
+  Serial.printf("Free PSRAM after audio init: %d bytes\n", ESP.getFreePsram());
+  Serial.println("Audio mixer system ready");
+}
+
+void startMP3Background() {
+  Serial.println("Starting MP3 background with large PSRAM buffer...");
+  
+  // Create MP3 file source
+  mp3FileSource = new AudioFileSourceSD(MP3_FILE);
+  if (!mp3FileSource) {
+    Serial.println("Failed to create MP3 file source");
+    return;
+  }
+  
+  // Create large PSRAM buffer for MP3
+  mp3Buffer = new AudioFileSourceBuffer(mp3FileSource, MP3_BUFFER_SIZE);
+  if (!mp3Buffer) {
+    Serial.println("Failed to create MP3 PSRAM buffer");
+    delete mp3FileSource;
+    return;
+  }
+  
+  // Create MP3 generator
+  mp3Generator = new AudioGeneratorMP3();
+  if (!mp3Generator) {
+    Serial.println("Failed to create MP3 generator");
+    delete mp3Buffer;
+    delete mp3FileSource;
+    return;
+  }
+  
+  // Start MP3 playback
+  if (mp3Generator->begin(mp3Buffer, mp3Channel)) {
+    mp3Playing = true;
+    Serial.printf("MP3 started with %dKB PSRAM buffer\n", MP3_BUFFER_SIZE / 1024);
+    Serial.printf("Free PSRAM after MP3 start: %d bytes\n", ESP.getFreePsram());
+  } else {
+    Serial.println("Failed to start MP3 playback");
+    cleanupMP3();
+  }
+}
+
+void triggerWAVEffect() {
+  if (wavPlaying) {
+    Serial.println("WAV already playing, skipping trigger");
+    return;
+  }
+  
+  Serial.println("Triggering WAV effect with PSRAM buffer...");
+  
+  // Create WAV file source
+  wavFileSource = new AudioFileSourceSD(WAV_FILE);
+  if (!wavFileSource) {
+    Serial.println("Failed to create WAV file source");
+    return;
+  }
+  
+  // Create PSRAM buffer for WAV
+  wavBuffer = new AudioFileSourceBuffer(wavFileSource, WAV_BUFFER_SIZE);
+  if (!wavBuffer) {
+    Serial.println("Failed to create WAV PSRAM buffer");
+    delete wavFileSource;
+    return;
+  }
+  
+  // Create WAV generator
+  wavGenerator = new AudioGeneratorWAV();
+  if (!wavGenerator) {
+    Serial.println("Failed to create WAV generator");
+    delete wavBuffer;
+    delete wavFileSource;
+    return;
+  }
+  
+  // Start WAV playback
+  if (wavGenerator->begin(wavBuffer, wavChannel)) {
+    wavPlaying = true;
+    Serial.printf("WAV effect started with %dKB PSRAM buffer\n", WAV_BUFFER_SIZE / 1024);
+  } else {
+    Serial.println("Failed to start WAV playback");
+    cleanupWAV();
+  }
+}
+
+// Dedicated audio processing task running on Core 1
+void audioProcessingTask(void *parameter) {
+  Serial.println("Audio processing task started on Core 1");
+  
+  while (true) {
+    bool audioActive = false;
+    
+    // Process MP3 background music
+    if (mp3Playing && mp3Generator && mp3Generator->isRunning()) {
+      if (mp3Generator->loop()) {
+        audioActive = true;
+      } else {
+        // MP3 finished, restart it
+        Serial.println("MP3 finished, restarting...");
+        restartMP3();
+      }
+    }
+    
+    // Process WAV sound effects
+    if (wavPlaying && wavGenerator && wavGenerator->isRunning()) {
+      if (wavGenerator->loop()) {
+        audioActive = true;
+      } else {
+        // WAV finished, clean it up
+        Serial.println("WAV effect finished");
+        cleanupWAV();
+      }
+    }
+    
+    // If no audio is active, ensure MP3 is running
+    if (!audioActive && !mp3Playing) {
+      Serial.println("No audio active, restarting MP3...");
+      startMP3Background();
+    }
+    
+    // Small delay to prevent task watchdog issues
+    vTaskDelay(1 / portTICK_PERIOD_MS);
+  }
+}
+
+void restartMP3() {
+  cleanupMP3();
+  vTaskDelay(100 / portTICK_PERIOD_MS); // Brief pause
+  startMP3Background();
+}
+
+void cleanupMP3() {
+  if (mp3Generator) {
+    mp3Generator->stop();
+    delete mp3Generator;
+    mp3Generator = nullptr;
+  }
+  if (mp3Buffer) {
+    delete mp3Buffer;
+    mp3Buffer = nullptr;
+  }
+  if (mp3FileSource) {
+    delete mp3FileSource;
+    mp3FileSource = nullptr;
+  }
+  mp3Playing = false;
+}
+
+void cleanupWAV() {
+  if (wavGenerator) {
+    wavGenerator->stop();
+    delete wavGenerator;
+    wavGenerator = nullptr;
+  }
+  if (wavBuffer) {
+    delete wavBuffer;
+    wavBuffer = nullptr;
+  }
+  if (wavFileSource) {
+    delete wavFileSource;
+    wavFileSource = nullptr;
+  }
+  wavPlaying = false;
+}
