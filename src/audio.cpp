@@ -1,4 +1,5 @@
 #include "audio.h"
+#include "debug_config.h"
 
 // Audio system objects
 AudioOutputI2S *i2s = nullptr;
@@ -28,19 +29,19 @@ TaskHandle_t audioTaskHandle;
 void verifyAudioFiles() {
     // Verify audio files exist
     if (!SD.exists(MP3_FILE)) {
-        Serial.printf("MP3 file %s not found!\n", MP3_FILE);
+        debug_printf("MP3 file %s not found!\n", MP3_FILE);
         while(1);
     }
     if (!SD.exists(WAV_FILE)) {
-        Serial.printf("WAV file %s not found!\n", WAV_FILE);
+        debug_printf("WAV file %s not found!\n", WAV_FILE);
         while(1);
     }
     
-    Serial.println("Audio files verified");
+    debug_printf("Audio files verified \n");
 }
 
 void initializeAudioSystem() {
-  Serial.println("Initializing audio system...");
+  debug_printf("Initializing audio system... \n");
   
   // Create I2S output
   i2s = new AudioOutputI2S();
@@ -57,24 +58,24 @@ void initializeAudioSystem() {
   wavChannel = mixer->NewInput();
   wavChannel->SetGain(0.8); // Sound effects volume (louder)
   
-  Serial.printf("Free PSRAM after audio init: %d bytes\n", ESP.getFreePsram());
-  Serial.println("Audio mixer system ready");
+  debug_printf("Free PSRAM after audio init: %d bytes\n", ESP.getFreePsram());
+  debug_printf("Audio mixer system ready \n");
 }
 
 void startMP3Background() {
-  Serial.println("Starting MP3 background with large PSRAM buffer...");
+  debug_printf("Starting MP3 background with large PSRAM buffer... \n");
   
   // Create MP3 file source
   mp3FileSource = new AudioFileSourceSD(MP3_FILE);
   if (!mp3FileSource) {
-    Serial.println("Failed to create MP3 file source");
+    debug_printf("Failed to create MP3 file source \n");
     return;
   }
   
   // Create large PSRAM buffer for MP3
   mp3Buffer = new AudioFileSourceBuffer(mp3FileSource, MP3_BUFFER_SIZE);
   if (!mp3Buffer) {
-    Serial.println("Failed to create MP3 PSRAM buffer");
+    debug_printf("Failed to create MP3 PSRAM buffer \n");
     delete mp3FileSource;
     return;
   }
@@ -82,7 +83,7 @@ void startMP3Background() {
   // Create MP3 generator
   mp3Generator = new AudioGeneratorMP3();
   if (!mp3Generator) {
-    Serial.println("Failed to create MP3 generator");
+    debug_printf("Failed to create MP3 generator \n");
     delete mp3Buffer;
     delete mp3FileSource;
     return;
@@ -91,10 +92,10 @@ void startMP3Background() {
   // Start MP3 playback
   if (mp3Generator->begin(mp3Buffer, mp3Channel)) {
     mp3Playing = true;
-    Serial.printf("MP3 started with %dKB PSRAM buffer\n", MP3_BUFFER_SIZE / 1024);
-    Serial.printf("Free PSRAM after MP3 start: %d bytes\n", ESP.getFreePsram());
+    debug_printf("MP3 started with %dKB PSRAM buffer\n", MP3_BUFFER_SIZE / 1024);
+    debug_printf("Free PSRAM after MP3 start: %d bytes\n", ESP.getFreePsram());
   } else {
-    Serial.println("Failed to start MP3 playback");
+    debug_printf("Failed to start MP3 playback \n");
     cleanupMP3();
   }
 }
@@ -113,23 +114,23 @@ void createAudioTask() {
 
 void triggerWAVEffect() {
   if (wavPlaying) {
-    Serial.println("WAV already playing, skipping trigger");
+    debug_printf("WAV already playing, skipping trigger \n");
     return;
   }
   
-  Serial.println("Triggering WAV effect with PSRAM buffer...");
+  debug_printf("Triggering WAV effect with PSRAM buffer... \n");
   
   // Create WAV file source
   wavFileSource = new AudioFileSourceSD(WAV_FILE);
   if (!wavFileSource) {
-    Serial.println("Failed to create WAV file source");
+    debug_printf("Failed to create WAV file source \n");
     return;
   }
   
   // Create PSRAM buffer for WAV
   wavBuffer = new AudioFileSourceBuffer(wavFileSource, WAV_BUFFER_SIZE);
   if (!wavBuffer) {
-    Serial.println("Failed to create WAV PSRAM buffer");
+    debug_printf("Failed to create WAV PSRAM buffer \n");
     delete wavFileSource;
     return;
   }
@@ -137,7 +138,7 @@ void triggerWAVEffect() {
   // Create WAV generator
   wavGenerator = new AudioGeneratorWAV();
   if (!wavGenerator) {
-    Serial.println("Failed to create WAV generator");
+    debug_printf("Failed to create WAV generator \n");
     delete wavBuffer;
     delete wavFileSource;
     return;
@@ -146,16 +147,16 @@ void triggerWAVEffect() {
   // Start WAV playback
   if (wavGenerator->begin(wavBuffer, wavChannel)) {
     wavPlaying = true;
-    Serial.printf("WAV effect started with %dKB PSRAM buffer\n", WAV_BUFFER_SIZE / 1024);
+    debug_printf("WAV effect started with %dKB PSRAM buffer\n", WAV_BUFFER_SIZE / 1024);
   } else {
-    Serial.println("Failed to start WAV playback");
+    debug_printf("Failed to start WAV playback \n");
     cleanupWAV();
   }
 }
 
 // Dedicated audio processing task running on Core 1
 void audioProcessingTask(void *parameter) {
-  Serial.println("Audio processing task started on Core 1");
+  debug_printf("Audio processing task started on Core 1 \n");
   
   while (true) {
     bool audioActive = false;
@@ -166,7 +167,7 @@ void audioProcessingTask(void *parameter) {
         audioActive = true;
       } else {
         // MP3 finished, restart it
-        Serial.println("MP3 finished, restarting...");
+        debug_printf("MP3 finished, restarting... \n");
         restartMP3();
       }
     }
@@ -177,14 +178,14 @@ void audioProcessingTask(void *parameter) {
         audioActive = true;
       } else {
         // WAV finished, clean it up
-        Serial.println("WAV effect finished");
+        debug_printf("WAV effect finished \n");
         cleanupWAV();
       }
     }
     
     // If no audio is active, ensure MP3 is running
     if (!audioActive && !mp3Playing) {
-      Serial.println("No audio active, restarting MP3...");
+      debug_printf("No audio active, restarting MP3... \n");
       startMP3Background();
     }
     
