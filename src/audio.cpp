@@ -22,6 +22,7 @@ unsigned long lastWavTime = 0;
 const unsigned long WAV_INTERVAL = 8000; // Play WAV every 8 seconds
 bool mp3Playing = false;
 bool wavPlaying = false;
+bool wavSystemReady = false;
 
 // Task handles for dual-core processing
 TaskHandle_t audioTaskHandle;
@@ -120,40 +121,64 @@ void triggerWAVEffect() {
     debug_printf("WAV already playing, skipping trigger \n");
     return;
   }
-  
-  debug_printf("Triggering WAV effect with PSRAM buffer... \n");
-  
-  // Create WAV file source
+
+  debug_printf("Triggering WAV effect with fresh file source... \n");
+
+  // Clean up any existing WAV components
+  if (wavGenerator) {
+    wavGenerator->stop();
+    delete wavGenerator;
+    wavGenerator = nullptr;
+  }
+  if (wavBuffer) {
+    delete wavBuffer;
+    wavBuffer = nullptr;
+  }
+  if (wavFileSource) {
+    delete wavFileSource;
+    wavFileSource = nullptr;
+  }
+
+  // Create fresh WAV file source
   wavFileSource = new AudioFileSourceSD(WAV_FILE);
   if (!wavFileSource) {
     debug_printf("Failed to create WAV file source \n");
     return;
   }
-  
-  // Create PSRAM buffer for WAV
+
+  // Create fresh buffer
   wavBuffer = new AudioFileSourceBuffer(wavFileSource, WAV_BUFFER_SIZE);
   if (!wavBuffer) {
-    debug_printf("Failed to create WAV PSRAM buffer \n");
+    debug_printf("Failed to create WAV buffer \n");
     delete wavFileSource;
+    wavFileSource = nullptr;
     return;
   }
-  
-  // Create WAV generator
+
+  // Create fresh generator
   wavGenerator = new AudioGeneratorWAV();
   if (!wavGenerator) {
     debug_printf("Failed to create WAV generator \n");
     delete wavBuffer;
     delete wavFileSource;
+    wavBuffer = nullptr;
+    wavFileSource = nullptr;
     return;
   }
-  
+
   // Start WAV playback
   if (wavGenerator->begin(wavBuffer, wavChannel)) {
     wavPlaying = true;
-    debug_printf("WAV effect started with %dKB PSRAM buffer\n", WAV_BUFFER_SIZE / 1024);
+    debug_printf("WAV effect started with fresh components! \n");
   } else {
     debug_printf("Failed to start WAV playback \n");
-    cleanupWAV();
+    // Clean up on failure
+    delete wavGenerator;
+    delete wavBuffer;
+    delete wavFileSource;
+    wavGenerator = nullptr;
+    wavBuffer = nullptr;
+    wavFileSource = nullptr;
   }
 }
 
@@ -228,21 +253,48 @@ void cleanupMP3() {
 void cleanupWAV() {
   if (wavGenerator) {
     wavGenerator->stop();
-    delete wavGenerator;
-    wavGenerator = nullptr;
-  }
-  if (wavBuffer) {
-    delete wavBuffer;
-    wavBuffer = nullptr;
-  }
-  if (wavFileSource) {
-    delete wavFileSource;
-    wavFileSource = nullptr;
+    // Don't delete - keep for reuse!
   }
   wavPlaying = false;
+  // Keep wavFileSource, wavBuffer, and wavGenerator loaded for next time
 }
 
 void setMP3Looping(bool shouldLoop) {
   mp3ShouldLoop = shouldLoop;
   debug_printf("MP3 looping set to: %s \n", shouldLoop ? "true" : "false");
+}
+
+void preInitializeWAVSystem() {
+  debug_printf("Pre-initializing WAV system... \n");
+  
+  // Create WAV file source
+  wavFileSource = new AudioFileSourceSD(WAV_FILE);
+  if (!wavFileSource) {
+    debug_printf("Failed to create WAV file source for pre-init \n");
+    return;
+  }
+  
+  // Create PSRAM buffer and fully load the WAV file
+  wavBuffer = new AudioFileSourceBuffer(wavFileSource, WAV_BUFFER_SIZE);
+  if (!wavBuffer) {
+    debug_printf("Failed to create WAV PSRAM buffer for pre-init \n");
+    delete wavFileSource;
+    wavFileSource = nullptr;
+    return;
+  }
+  
+  // Create WAV generator but don't start it yet
+  wavGenerator = new AudioGeneratorWAV();
+  if (!wavGenerator) {
+    debug_printf("Failed to create WAV generator for pre-init \n");
+    delete wavBuffer;
+    delete wavFileSource;
+    wavBuffer = nullptr;
+    wavFileSource = nullptr;
+    return;
+  }
+  
+  wavSystemReady = true;
+  debug_printf("WAV system pre-initialized and ready for instant playback \n");
+  debug_printf("Free PSRAM after WAV pre-init: %d bytes\n", ESP.getFreePsram());
 }

@@ -32,6 +32,7 @@ extern AudioGeneratorWAV *wavGenerator;
 extern unsigned long lastWavTime;
 extern bool mp3Playing;
 extern bool wavPlaying;
+extern bool wavSystemReady;  // Track if WAV system is initialized
 
 // Task handles for dual-core processing
 extern TaskHandle_t audioTaskHandle;
@@ -49,4 +50,6 @@ void restartMP3();
 void cleanupMP3();
 void cleanupWAV();
 void setMP3Looping(bool shouldLoop);
+void preInitializeWAVSystem();
+
 

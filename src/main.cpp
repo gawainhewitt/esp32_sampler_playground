@@ -23,6 +23,9 @@ void setup() {
   
   // Start background MP3
   startMP3Background();
+
+  // Pre-initialize WAV system for instant playback
+  preInitializeWAVSystem();
   
   // Create audio processing task on Core 1 (dedicated to audio)
   createAudioTask();
