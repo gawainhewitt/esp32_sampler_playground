@@ -18,9 +18,9 @@
 #define BUTTON_PIN 15
 
 // Audio buffer sizes
-#define MP3_BUFFER_SIZE (256 * 1024)
-#define WAV_BUFFER_SIZE (128 * 1024)
-#define MIXER_BUFFER_SIZE 1024
+#define MP3_BUFFER_SIZE (128 * 1024) // the first number is buffer size in kb
+#define WAV_BUFFER_SIZE (64 * 1024) // the first number is buffer size in kb
+#define MIXER_BUFFER_SIZE 1024 // Mixer buffer size
 
 // === SYSTEM CONSTANTS ===
 #define HEALTH_CHECK_INTERVAL 10000

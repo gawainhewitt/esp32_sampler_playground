@@ -10,12 +10,7 @@
 
 // Audio files
 #define MP3_FILE "/sault.mp3"
-#define WAV_FILE "/001Music.wav"
-
-// Large PSRAM buffers for smooth audio
-#define MP3_BUFFER_SIZE (256 * 1024)  // 128KB for MP3 (larger for continuous playback) ****I CHANGE THESE
-#define WAV_BUFFER_SIZE (128 * 1024)   // 64KB for WAV effects
-#define MIXER_BUFFER_SIZE 1024        // Mixer buffer size
+#define WAV_FILE "/002Music.wav"
 
 // Audio system objects
 extern AudioOutputI2S *i2s;

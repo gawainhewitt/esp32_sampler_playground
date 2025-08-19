@@ -5,7 +5,7 @@ void debugInit() {
     if (ENABLE_SERIAL_DEBUG) {
         Serial.begin(115200);
         delay(1000);
-        Serial.println("Starting Distance-to-Audio project...");
+        Serial.println("Starting Audio project...");
     }
 }
 
