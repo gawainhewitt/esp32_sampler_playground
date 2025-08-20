@@ -6,10 +6,12 @@ needs good powermanagement to run properly otherwise expect clicks and pops. Run
 if running on external power then you have to be really careful to manage the usb power vs external power to not fry something. 
 
 Current Limitations with ESP8266Audio Library
+
 The ESP8266Audio library you're currently using has fundamental limitations for polyphonic playback - it wasn't designed to play multiple WAV files simultaneously Play two wav files simultaneously? · Issue #24 · earlephilhower/ESP8266Audio, which explains why you can play a backing track (MP3) and one WAV file but not multiple WAV samples at once.
 
-ESP32 Audio Library Comparison
-ESP8266Audio
+## ESP32 Audio Library Comparison
+
+### ESP8266Audio
 Strengths:
 
 Excellent simultaneous audio mixing (MP3 + WAV)
@@ -25,7 +27,7 @@ Limited to sequential WAV playback (not truly polyphonic)
 Older API design patterns
 Less cross-platform compatibility
 
-Arduino Audio Tools
+### Arduino Audio Tools
 Strengths:
 
 Modern C++ architecture
@@ -56,5 +58,7 @@ Arduino Audio Tools is only suitable for:
 Simple, single-stream playback
 Cross-platform development
 Learning modern audio programming concepts
+
+### ESP32_S3_Sampler
 
 For your polyphonic sampler goal, neither library is optimal. ESP32_S3_Sampler by copych is purpose-built for polyphonic sampling with up to 19 concurrent voices and direct SD streaming.
