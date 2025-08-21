@@ -7,6 +7,7 @@
 #define SAMPLE_RATE           44100
 #define MAX_POLYPHONY         8           
 #define MAX_SAMPLES           16          
+#define MAX_INSTRUMENTS       4           // Maximum number of instruments
 
 // I2S pins for UDA1334A DAC
 #define I2S_BCLK_PIN    42

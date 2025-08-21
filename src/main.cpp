@@ -5,6 +5,7 @@
 #include "audio/audio_engine.h"
 #include "storage/sd_manager.h"
 #include "storage/sample_loader.h"
+#include "storage/instrument_manager.h"
 #include "midi/midi_handler.h"
 #include "utils/serial_commands.h"
 
@@ -23,15 +24,17 @@ void setup() {
     initSD();
     initVoices();
 
-    // Load samples (map your WAV files to MIDI notes)
-    // C major scale starting at middle C (MIDI note 60)
-    loadSampleFromSD("C.wav", 60);  // C4
-    loadSampleFromSD("D.wav", 62);  // D4
-    loadSampleFromSD("E.wav", 64);  // E4
-    loadSampleFromSD("F.wav", 65);  // F4
-    loadSampleFromSD("G.wav", 67);  // G4
-    loadSampleFromSD("A.wav", 69);  // A4
-    loadSampleFromSD("B.wav", 71);  // B4
+    // Load instruments instead of individual samples
+    DEBUG("Loading instruments...");
+    
+    // Load a basic piano instrument
+    loadBasicPiano();
+    
+    // You could also load a drum kit:
+    // loadBasicDrumKit();
+    
+    // Select the first instrument
+    selectInstrument(0);
 
     // Setup MIDI
     initMIDI();
@@ -47,12 +50,17 @@ void setup() {
         0
     );
 
-    DEBUGF("Loaded %d samples. Ready for MIDI input!\n", loadedSamples);
+    DEBUGF("Loaded %d instruments with %d total samples. Ready for MIDI input!\n", 
+           loadedInstruments, loadedSamples);
+    
     DEBUG("Commands:");
-    DEBUG("  play <note>     - Play sample (e.g., 'play 60')");
-    DEBUG("  stop <note>     - Stop sample");
-    DEBUG("  volume <0-2>    - Set sample volume");
-    DEBUG("  status          - Show status");
+    DEBUG("  play <note>        - Play note (e.g., 'play 60')");
+    DEBUG("  stop <note>        - Stop note");
+    DEBUG("  volume <0-2>       - Set sample volume");
+    DEBUG("  instrument <0-3>   - Select instrument");
+    DEBUG("  status             - Show status");
+    DEBUG("  load piano         - Load basic piano");
+    DEBUG("  load drums         - Load basic drums");
 }
 
 void loop() {

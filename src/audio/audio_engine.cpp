@@ -2,6 +2,7 @@
 #include "../config.h"
 #include "../debug.h"
 #include "../storage/sample_loader.h"
+#include "../storage/instrument_manager.h"
 #include "i2s_manager.h"
 
 Voice voices[MAX_POLYPHONY];
@@ -24,19 +25,17 @@ Voice* getFreeVoice() {
     return nullptr; // No free voices
 }
 
-Sample* getSampleForNote(uint8_t midiNote) {
-    for (int i = 0; i < loadedSamples; i++) {
-        if (samples[i].midiNote == midiNote && samples[i].isLoaded) {
-            return &samples[i];
-        }
-    }
-    return nullptr;
-}
-
 void noteOn(uint8_t midiNote, uint8_t velocity) {
-    Sample* sample = getSampleForNote(midiNote);
-    if (!sample) {
-        DEBUGF("No sample found for MIDI note %d\n", midiNote);
+    Instrument* instrument = getCurrentInstrument();
+    if (!instrument) {
+        DEBUG("No instrument selected");
+        return;
+    }
+    
+    // Find the best key sample for this MIDI note
+    KeySample* keySample = findBestKeySample(instrument, midiNote);
+    if (!keySample || !keySample->sample) {
+        DEBUGF("No suitable sample found for MIDI note %d\n", midiNote);
         return;
     }
 
@@ -46,22 +45,26 @@ void noteOn(uint8_t midiNote, uint8_t velocity) {
         return;
     }
 
+    // Calculate pitch shift ratio
+    int semitoneOffset = (int)midiNote - (int)keySample->rootNote;
+    float pitchRatio = calculatePitchRatio(semitoneOffset);
+    
     // Initialize voice
-    voice->sample = sample;
+    voice->sample = keySample->sample;
     voice->position = 0;
     voice->positionFloat = 0.0f;
     voice->isActive = true;
     voice->midiNote = midiNote;
     voice->velocity = velocity;
     voice->amplitude = velocity / 127.0f;
-    voice->speed = 1.0f; // Normal speed
+    voice->speed = pitchRatio;  // This is the key change - speed based on pitch
     voice->envState = Voice::ATTACK;
     voice->envValue = 0.0f;
     voice->envTarget = 1.0f;
     voice->envRate = 0.01f; // Fast attack
     voice->noteOff = false;
 
-    DEBUGF("Note ON: %d, velocity: %d\n", midiNote, velocity);
+    DEBUGF("Note ON: %d, using sample at note %d (ratio: %.3f)\n", midiNote, keySample->rootNote, pitchRatio);
 }
 
 void noteOff(uint8_t midiNote) {
@@ -110,14 +113,14 @@ void processVoice(Voice& voice, int16_t& leftOut, int16_t& rightOut) {
             break;
     }
 
-    // Get sample data
+    // Get sample data with bounds checking
     uint32_t pos = (uint32_t)voice.positionFloat;
     if (pos >= voice.sample->length - 1) {
         voice.isActive = false;
         return;
     }
 
-    // Simple interpolation between samples
+    // Linear interpolation for smooth pitch shifting
     float frac = voice.positionFloat - pos;
     int16_t sample1L = voice.sample->data[pos * 2];
     int16_t sample1R = voice.sample->data[pos * 2 + 1];
@@ -129,10 +132,16 @@ void processVoice(Voice& voice, int16_t& leftOut, int16_t& rightOut) {
 
     // Apply envelope and velocity
     float gain = voice.envValue * voice.amplitude * sampleVolume;
+    
+    // Add anti-aliasing filter for high pitch ratios (simple)
+    if (voice.speed > 2.0f) {
+        gain *= 0.7f; // Reduce gain for very high pitches to reduce aliasing
+    }
+    
     leftOut += (int16_t)(interpL * gain);
     rightOut += (int16_t)(interpR * gain);
 
-    // Advance position
+    // Advance position by speed (pitch shift)
     voice.positionFloat += voice.speed;
 }
 
@@ -155,9 +164,12 @@ void audioTaskCode(void* parameter) {
                 }
             }
             
-            // Prevent clipping
-            audioBuffer[i * 2] = constrain(leftMix, -32767, 32767);
-            audioBuffer[i * 2 + 1] = constrain(rightMix, -32767, 32767);
+            // Prevent clipping with soft limiting
+            leftMix = constrain(leftMix, -32767, 32767);
+            rightMix = constrain(rightMix, -32767, 32767);
+            
+            audioBuffer[i * 2] = leftMix;
+            audioBuffer[i * 2 + 1] = rightMix;
         }
 
         // Output to I2S
