@@ -3,6 +3,82 @@
 #include "../debug.h"
 #include "../audio/audio_engine.h"
 #include "../storage/instrument_manager.h"
+#include "FS.h"
+#include "SD_MMC.h"
+
+void listSDContents(const char* dirname = "/", int maxDepth = 2, int currentDepth = 0) {
+    if (currentDepth >= maxDepth) return;
+    
+    File root = SD_MMC.open(dirname);
+    if (!root) {
+        DEBUGF("Failed to open directory: %s\n", dirname);
+        return;
+    }
+    
+    if (!root.isDirectory()) {
+        DEBUG("Not a directory");
+        root.close();
+        return;
+    }
+
+    File file = root.openNextFile();
+    while (file) {
+        // Print indentation
+        for (int i = 0; i < currentDepth; i++) {
+            Serial.print("  ");
+        }
+        
+        if (file.isDirectory()) {
+            DEBUGF("DIR:  %s/\n", file.name());
+            // Recursively list subdirectories
+            String subPath = String(dirname) + String(file.name()) + "/";
+            listSDContents(subPath.c_str(), maxDepth, currentDepth + 1);
+        } else {
+            DEBUGF("FILE: %s (%d bytes)\n", file.name(), file.size());
+        }
+        file.close();
+        file = root.openNextFile();
+        
+        delay(10); // Small delay to prevent watchdog issues
+    }
+    root.close();
+}
+
+void testSDCardAccess() {
+    DEBUG("=== SD Card Diagnostic ===");
+    
+    // Test basic card info
+    DEBUGF("Card Size: %llu MB\n", SD_MMC.cardSize() / (1024 * 1024));
+    DEBUGF("Card Type: %d\n", SD_MMC.cardType());
+    
+    // List all files
+    DEBUG("Complete directory listing:");
+    listSDContents("/", 3, 0);
+    
+    // Test specific file access
+    DEBUG("\nTesting specific drum files:");
+    const char* drumFiles[] = {
+        "/kick.wav",
+        "/snare.wav", 
+        "/hihat_closed.wav",
+        "/hihat_open.wav",
+        "/crash.wav",
+        "/ride.wav"
+    };
+    
+    for (int i = 0; i < 6; i++) {
+        File testFile = SD_MMC.open(drumFiles[i]);
+        if (testFile) {
+            DEBUGF("✓ %s exists (%d bytes)\n", drumFiles[i], testFile.size());
+            testFile.close();
+        } else {
+            DEBUGF("✗ %s missing or inaccessible\n", drumFiles[i]);
+        }
+        delay(50); // Prevent rapid SD access
+    }
+    
+    DEBUG("=== End Diagnostic ===");
+}
 
 void handleSerialCommands() {
     if (Serial.available()) {
@@ -36,6 +112,13 @@ void handleSerialCommands() {
         }
         else if (command == "load drums") {
             loadBasicDrumKit();
+        }
+        else if (command == "sdtest") {
+            testSDCardAccess();
+        }
+        else if (command == "sdlist") {
+            DEBUG("SD Card Contents:");
+            listSDContents("/", 3, 0);
         }
         else if (command == "status") {
             DEBUGF("Loaded instruments: %d\n", loadedInstruments);
@@ -73,6 +156,8 @@ void handleSerialCommands() {
             DEBUG("  load piano         - Load basic piano");
             DEBUG("  load drums         - Load basic drums");
             DEBUG("  status             - Show detailed status");
+            DEBUG("  sdtest             - Test SD card access");
+            DEBUG("  sdlist             - List SD card contents");
             DEBUG("  help               - Show this help");
         }
     }

@@ -116,3 +116,170 @@ void printCardInfo() {
         }
     }
 }
+
+// Add this to your sd_manager.cpp or sample_loader.cpp
+
+// Replace your existing wakeUpSDCard() function with this more aggressive version
+
+bool wakeUpSDCard() {
+    DEBUG("Waking up SD card with file test...");
+    
+    // Test actual file operations, not just directory
+    File testFile = SD_MMC.open("/piano_C4.wav");  // Known good file from your setup
+    if (testFile) {
+        testFile.close();
+        DEBUG("File test successful - SD card operational");
+        return true;  // File operations working
+    }
+    
+    // If file test fails, go straight to reset
+    DEBUG("File test failed, doing immediate SD reset...");
+    
+    // Perform SD card reset
+    SD_MMC.end();
+    delay(300); // Slightly longer delay for reliability
+    
+    if (SD_MMC.begin("/sdcard", false)) { // false = 4-bit mode
+        DEBUG("SD reset successful, verifying with file test...");
+        
+        // Verify reset worked with another file test
+        testFile = SD_MMC.open("/piano_C4.wav");
+        if (testFile) {
+            testFile.close();
+            DEBUGF("SD card fully operational after reset (size: %llu MB)\n", 
+                   SD_MMC.cardSize() / (1024 * 1024));
+            return true;
+        } else {
+            DEBUG("File test still failing after 4-bit reset, trying 1-bit mode...");
+        }
+    }
+    
+    // Fallback to 1-bit mode
+    SD_MMC.end();
+    delay(300);
+    
+    if (SD_MMC.begin("/sdcard", true)) { // true = 1-bit mode
+        DEBUG("1-bit mode reset successful, verifying...");
+        
+        testFile = SD_MMC.open("/piano_C4.wav");
+        if (testFile) {
+            testFile.close();
+            DEBUG("1-bit mode operational");
+            return true;
+        }
+    }
+    
+    DEBUG("All SD reset methods failed");
+    return false;
+}
+
+// Enhanced version that tries multiple test files (in case one is corrupted)
+bool wakeUpSDCardRobust() {
+    DEBUG("Robust SD wake-up with multiple file tests...");
+    
+    // List of known files to test (add files you know exist)
+    const char* testFiles[] = {
+        "/piano_C4.wav",
+        "/piano_C3.wav", 
+        "/piano_C5.wav",
+        "/kick.wav"
+    };
+    
+    // Try opening multiple files to ensure SD card is truly working
+    int successfulTests = 0;
+    for (int i = 0; i < 4; i++) {
+        File testFile = SD_MMC.open(testFiles[i]);
+        if (testFile) {
+            testFile.close();
+            successfulTests++;
+            if (successfulTests >= 2) {
+                DEBUGF("Multiple file tests successful (%d/4) - SD card operational\n", successfulTests);
+                return true;
+            }
+        }
+    }
+    
+    DEBUGF("File tests failed (%d/4 succeeded), doing immediate SD reset...\n", successfulTests);
+    
+    // Reset logic (same as above)
+    SD_MMC.end();
+    delay(300);
+    
+    if (SD_MMC.begin("/sdcard", false)) { // 4-bit mode
+        DEBUG("SD reset successful, re-testing files...");
+        
+        // Re-test files after reset
+        successfulTests = 0;
+        for (int i = 0; i < 4; i++) {
+            File testFile = SD_MMC.open(testFiles[i]);
+            if (testFile) {
+                testFile.close();
+                successfulTests++;
+            }
+        }
+        
+        if (successfulTests >= 2) {
+            DEBUGF("Reset successful - %d/4 files accessible\n", successfulTests);
+            return true;
+        }
+        
+        DEBUG("4-bit mode still having issues, trying 1-bit mode...");
+    }
+    
+    // 1-bit fallback
+    SD_MMC.end();
+    delay(300);
+    
+    if (SD_MMC.begin("/sdcard", true)) { // 1-bit mode
+        DEBUG("1-bit reset successful, testing files...");
+        
+        successfulTests = 0;
+        for (int i = 0; i < 4; i++) {
+            File testFile = SD_MMC.open(testFiles[i]);
+            if (testFile) {
+                testFile.close();
+                successfulTests++;
+            }
+        }
+        
+        if (successfulTests >= 1) {
+            DEBUGF("1-bit mode working - %d/4 files accessible\n", successfulTests);
+            return true;
+        }
+    }
+    
+    DEBUG("All SD card recovery attempts failed");
+    return false;
+}
+
+// Simple version for runtime use (less aggressive, faster)
+bool quickSDCheck() {
+    File testFile = SD_MMC.open("/piano_C4.wav");
+    if (testFile) {
+        testFile.close();
+        return true;
+    }
+    return false;
+}
+
+// Enhanced version with retry and timing
+bool wakeUpSDCardWithRetry(int maxAttempts) {
+    for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+        DEBUGF("SD wake up attempt %d of %d\n", attempt, maxAttempts);
+        
+        if (wakeUpSDCard()) {
+            if (attempt > 1) {
+                DEBUGF("SD card woke up after %d attempts\n", attempt);
+            }
+            return true;
+        }
+        
+        if (attempt < maxAttempts) {
+            DEBUG("Wake up failed, waiting before retry...");
+            delay(500 * attempt); // Increasing delay between retries
+        }
+    }
+    
+    DEBUG("SD card wake up failed after all attempts");
+    return false;
+}

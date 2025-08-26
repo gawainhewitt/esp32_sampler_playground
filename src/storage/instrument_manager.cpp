@@ -2,6 +2,7 @@
 #include "../config.h"
 #include "../debug.h"
 #include "sample_loader.h"
+#include "sd_manager.h"
 #include <math.h>
 
 Instrument instruments[MAX_INSTRUMENTS];
@@ -132,6 +133,12 @@ Instrument* getCurrentInstrument() {
 void loadBasicPiano() {
     int pianoIndex = createInstrument("Basic Piano");
     if (pianoIndex == -1) return;
+
+    // Wake up SD card before loading samples
+    if (!wakeUpSDCardWithRetry()) {
+        DEBUG("Failed to wake up SD card for piano loading");
+        return;
+    }
     
     // Load key samples with appropriate ranges
     // Low range
@@ -147,6 +154,12 @@ void loadBasicPiano() {
 void loadBasicDrumKit() {
     int drumIndex = createInstrument("Basic Drums");
     if (drumIndex == -1) return;
+
+    // Wake up SD card before loading samples
+    if (!wakeUpSDCard()) {
+        DEBUG("Failed to wake up SD card for drum kit loading");
+        return;
+    }
     
     // Load drum samples to specific MIDI notes (GM drum map)
     loadKeySample(drumIndex, "kick.wav", 36, 36, 36);        // Bass Drum 1
