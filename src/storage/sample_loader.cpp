@@ -2,7 +2,7 @@
 #include "../config.h"
 #include "../debug.h"
 #include "FS.h"
-#include "SD.h"
+#include "SD_MMC.h"  // Changed from SD.h to SD_MMC.h
 
 Sample samples[MAX_SAMPLES];
 
@@ -17,7 +17,7 @@ bool loadSampleFromSD(const char* filename, uint8_t midiNote) {
         filepath = "/" + filepath;
     }
 
-    File file = SD.open(filepath.c_str());
+    File file = SD_MMC.open(filepath.c_str());  // Changed from SD.open to SD_MMC.open
     if (!file) {
         DEBUGF("Failed to open file: %s\n", filepath.c_str());
         return false;
