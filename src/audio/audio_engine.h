@@ -9,7 +9,6 @@ extern TaskHandle_t audioTask;
 
 void initVoices();
 Voice* getFreeVoice();
-Sample* getSampleForNote(uint8_t midiNote);
 void noteOn(uint8_t midiNote, uint8_t velocity);
 void noteOff(uint8_t midiNote);
 void processVoice(Voice& voice, int16_t& leftOut, int16_t& rightOut);

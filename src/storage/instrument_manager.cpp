@@ -9,43 +9,6 @@ Instrument instruments[MAX_INSTRUMENTS];
 int currentInstrument = 0;
 int loadedInstruments = 0;
 
-float calculatePitchRatio(int semitoneOffset) {
-    // Calculate pitch ratio using 12-tone equal temperament
-    // Each semitone is 2^(1/12) ratio
-    return pow(2.0f, semitoneOffset / 12.0f);
-}
-
-KeySample* findBestKeySample(Instrument* instrument, uint8_t midiNote) {
-    if (!instrument || !instrument->isLoaded) {
-        return nullptr;
-    }
-    
-    // First, look for a key sample that covers this note directly
-    for (int i = 0; i < instrument->numKeySamples; i++) {
-        KeySample* ks = &instrument->keySamples[i];
-        if (ks->isLoaded && midiNote >= ks->minNote && midiNote <= ks->maxNote) {
-            return ks;
-        }
-    }
-    
-    // If no direct match, find the closest key sample
-    KeySample* closest = nullptr;
-    int smallestDistance = 128;
-    
-    for (int i = 0; i < instrument->numKeySamples; i++) {
-        KeySample* ks = &instrument->keySamples[i];
-        if (ks->isLoaded) {
-            int distance = abs((int)midiNote - (int)ks->rootNote);
-            if (distance < smallestDistance) {
-                smallestDistance = distance;
-                closest = ks;
-            }
-        }
-    }
-    
-    return closest;
-}
-
 bool loadKeySample(int instrumentIndex, const char* filename, uint8_t rootNote, uint8_t minNote, uint8_t maxNote) {
     if (instrumentIndex >= MAX_INSTRUMENTS || !instruments[instrumentIndex].isLoaded) {
         DEBUG("Invalid instrument index");

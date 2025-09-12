@@ -28,8 +28,8 @@
 #define MIDITX_PIN      9
 
 // Audio settings
-#define DMA_BUF_LEN     64
-#define DMA_NUM_BUF     2
+#define DMA_BUF_LEN     256
+#define DMA_NUM_BUF     8
 
 // Global audio settings
 extern float sampleVolume;

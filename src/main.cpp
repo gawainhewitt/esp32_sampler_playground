@@ -10,7 +10,7 @@
 #include "utils/serial_commands.h"
 
 // Global variables (defined here)
-float sampleVolume = 1.0f;
+float sampleVolume = 1.0f;  
 int loadedSamples = 0;
 
 void setup() {
@@ -40,15 +40,15 @@ void setup() {
     initMIDI();
 
     // Create audio task
-    xTaskCreatePinnedToCore(
-        audioTaskCode,
-        "AudioTask",
-        4096,
-        NULL,
-        1,
-        &audioTask,
-        0
-    );
+        xTaskCreatePinnedToCore( 
+            audioTaskCode,
+            "AudioTask",
+            4096,
+            NULL,
+            1,
+            &audioTask,
+            0
+        );
 
     DEBUGF("Loaded %d instruments with %d total samples. Ready for MIDI input!\n", 
            loadedInstruments, loadedSamples);
