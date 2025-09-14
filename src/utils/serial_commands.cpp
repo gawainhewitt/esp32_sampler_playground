@@ -45,6 +45,11 @@ void handleSerialCommands() {
             filename.trim();
             testMP3Decode(filename.c_str());
         }
+        else if (command.startsWith("stream mp3 ")) {
+            String filename = command.substring(11);
+            filename.trim();
+            testMP3Stream(filename.c_str());
+        }
         else if (command == "list files") {
             listSDFiles();
         }
@@ -92,6 +97,7 @@ void handleSerialCommands() {
             DEBUG("  load piano         - Load basic piano");
             DEBUG("  load drums         - Load basic drums");
             DEBUG("  test mp3 <file>    - Test MP3 decode (e.g., 'test mp3 song.mp3')");
+            DEBUG("  stream mp3 <file>  - Test MP3 streaming decode");
             DEBUG("  list files         - Show all files on SD card");
             DEBUG("  file info <file>   - Show detailed file information");
             DEBUG("  memory             - Show memory usage");
