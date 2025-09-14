@@ -15,10 +15,10 @@
 #define I2S_WCLK_PIN    7
 
 // SD Card SPI pins
-#define SD_CS_PIN    12
-#define SD_MOSI_PIN  3
-#define SD_MISO_PIN  9
-#define SD_SCK_PIN   46
+#define SD_CS_PIN    10
+#define SD_MOSI_PIN  11
+#define SD_MISO_PIN  13
+#define SD_SCK_PIN   12
 
 // SD Card 4 bit pins:
 // #define SDMMC_CMD 3
