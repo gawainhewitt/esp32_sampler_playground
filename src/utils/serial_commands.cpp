@@ -114,6 +114,8 @@ void handleSerialCommands() {
             DEBUG("  file info <file>   - Show detailed file information");
             DEBUG("  memory             - Show memory usage");
             DEBUG("  status             - Show detailed status");
+            DEBUG("  sdtest             - Test SD card access");
+            DEBUG("  sdlist             - List SD card contents");
             DEBUG("  help               - Show this help");
         }
     }

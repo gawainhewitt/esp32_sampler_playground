@@ -29,6 +29,7 @@
 // #define SDMMC_D3  12
 
 // MIDI pins
+
 #define MIDIRX_PIN      4
 #define MIDITX_PIN      9
 
