@@ -256,15 +256,24 @@ void mp3StreamTaskCode(void* parameter) {
         vTaskDelay(1); // Yield to other tasks
     }
     
-    // Cleanup
+    // Cleanup - let the task clean up its own resources
+    DEBUG("MP3 task cleaning up...");
     free(inputBuffer);
     free(frameBuffer);
-    MP3FreeDecoder(mp3Decoder);
-    mp3File.close();
+    if (mp3Decoder) {
+        MP3FreeDecoder(mp3Decoder);
+        mp3Decoder = NULL;
+    }
+    if (mp3File) {
+        mp3File.close();
+    }
+    
+    // Reset streaming flag and clear task handle
     mp3Streaming = false;
+    mp3StreamTask = NULL;
     
     DEBUG("MP3 stream task finished");
-    vTaskDelete(NULL);
+    vTaskDelete(NULL);  // Delete self
 }
 
 // Buffer management functions
