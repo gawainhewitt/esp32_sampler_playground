@@ -4,6 +4,7 @@
 #include "../audio/audio_engine.h"
 #include "../storage/instrument_manager.h"
 #include "../audio/mp3_test.h"
+#include "../audio/mp3_streamer.h"
 #include "FS.h"
 #include "SD.h"
 
@@ -12,12 +13,20 @@ void handleSerialCommands() {
         String command = Serial.readStringUntil('\n');
         command.trim();
         
-        if (command.startsWith("play ")) {
+        if (command.startsWith("play mp3 ")) {
+            String filename = command.substring(9);
+            filename.trim();
+            startMP3Stream(filename.c_str());
+        }
+        else if (command.startsWith("play ")) {
             int note = command.substring(5).toInt();
             if (note >= 0 && note <= 127) {
                 noteOn(note, 127);
                 DEBUGF("Playing MIDI note %d\n", note);
             }
+        }
+        else if (command.startsWith("stop mp3")) {
+            stopMP3Stream();
         }
         else if (command.startsWith("stop ")) {
             int note = command.substring(5).toInt();
@@ -98,6 +107,9 @@ void handleSerialCommands() {
             DEBUG("  load drums         - Load basic drums");
             DEBUG("  test mp3 <file>    - Test MP3 decode (e.g., 'test mp3 song.mp3')");
             DEBUG("  stream mp3 <file>  - Test MP3 streaming decode");
+            DEBUG("  play mp3 <file>    - Start MP3 backing track");
+            DEBUG("  stop mp3           - Stop MP3 backing track");
+            DEBUG("  mp3 volume <0-1>   - Set MP3 backing track volume");
             DEBUG("  list files         - Show all files on SD card");
             DEBUG("  file info <file>   - Show detailed file information");
             DEBUG("  memory             - Show memory usage");

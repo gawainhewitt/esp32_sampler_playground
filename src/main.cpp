@@ -3,6 +3,7 @@
 #include "debug.h"
 #include "audio/i2s_manager.h"
 #include "audio/audio_engine.h"
+#include "audio/mp3_streamer.h"
 #include "storage/sd_manager.h"
 #include "storage/sample_loader.h"
 #include "storage/instrument_manager.h"
@@ -23,6 +24,14 @@ void setup() {
     initI2S();
     initSD();
     initVoices();
+
+    // Initialize MP3 streamer
+    DEBUG("Calling initMP3Streamer...");
+    if (!initMP3Streamer()) {
+        DEBUG("Failed to initialize MP3 streamer");
+    } else {
+        DEBUG("MP3 streamer initialized successfully");
+    }
 
     // Load instruments instead of individual samples
     DEBUG("Loading instruments...");

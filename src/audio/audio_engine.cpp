@@ -4,6 +4,7 @@
 #include "../storage/sample_loader.h"
 #include "../storage/instrument_manager.h"
 #include "i2s_manager.h"
+#include "mp3_streamer.h"
 
 Voice voices[MAX_POLYPHONY];
 TaskHandle_t audioTask;
@@ -158,10 +159,18 @@ void audioTaskCode(void* parameter) {
         for (int i = 0; i < bufferSize; i++) {
             int16_t leftMix = 0, rightMix = 0;
             
+            // Mix polyphonic voices (samples/instruments)
             for (int v = 0; v < MAX_POLYPHONY; v++) {
                 if (voices[v].isActive) {
                     processVoice(voices[v], leftMix, rightMix);
                 }
+            }
+            
+            // Mix MP3 backing track
+            int16_t mp3Left = 0, mp3Right = 0;
+            if (readMP3Samples(&mp3Left, &mp3Right)) {
+                leftMix += mp3Left;
+                rightMix += mp3Right;
             }
             
             // Prevent clipping with soft limiting
