@@ -15,18 +15,18 @@
 #define I2S_WCLK_PIN    7
 
 // SD Card SPI pins
-#define SD_CS_PIN    10
-#define SD_MOSI_PIN  11
-#define SD_MISO_PIN  13
-#define SD_SCK_PIN   12
+// #define SD_CS_PIN    10
+// #define SD_MOSI_PIN  11
+// #define SD_MISO_PIN  13
+// #define SD_SCK_PIN   12
 
 // SD Card 4 bit pins:
-// #define SDMMC_CMD 3
-// #define SDMMC_CLK 46 
-// #define SDMMC_D0  9
-// #define SDMMC_D1  10
-// #define SDMMC_D2  11
-// #define SDMMC_D3  12
+#define SDMMC_CMD 12
+#define SDMMC_CLK 11 
+#define SDMMC_D0  10
+#define SDMMC_D1  9
+#define SDMMC_D2  14
+#define SDMMC_D3  13
 
 // MIDI pins
 #define MIDIRX_PIN      4

@@ -2,7 +2,7 @@
 #include "../config.h"
 #include "../debug.h"
 #include "FS.h"
-#include "SD.h"
+#include "SD_MMC.h"
 
 extern "C" {
 #include "libhelix-mp3/mp3dec.h"
@@ -20,7 +20,7 @@ void testMP3Decode(const char* filename) {
     DEBUGF("Opening file: %s\n", filepath.c_str());
     
     // Open the file
-    File file = SD.open(filepath.c_str());
+    File file = SD_MMC.open(filepath.c_str());
     if (!file) {
         DEBUGF("Failed to open MP3 file: %s\n", filepath.c_str());
         return;
@@ -157,7 +157,7 @@ void testMP3Stream(const char* filename) {
     DEBUGF("Opening file: %s\n", filepath.c_str());
     
     // Open the file
-    File file = SD.open(filepath.c_str());
+    File file = SD_MMC.open(filepath.c_str());
     if (!file) {
         DEBUGF("Failed to open MP3 file: %s\n", filepath.c_str());
         return;

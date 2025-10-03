@@ -2,7 +2,7 @@
 #include "../config.h"
 #include "../debug.h"
 #include "FS.h"
-#include "SD.h"
+#include "SD_MMC.h"
 
 extern "C" {
 #include "libhelix-mp3/mp3dec.h"
@@ -150,7 +150,7 @@ void mp3StreamTaskCode(void* parameter) {
     }
     
     // Open file
-    mp3File = SD.open(filepath.c_str());
+    mp3File = SD_MMC.open(filepath.c_str());
     if (!mp3File) {
         DEBUGF("Failed to open MP3 file: %s\n", filepath.c_str());
         mp3Streaming = false;

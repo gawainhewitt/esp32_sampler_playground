@@ -6,7 +6,7 @@
 #include "../audio/mp3_test.h"
 #include "../audio/mp3_streamer.h"
 #include "FS.h"
-#include "SD.h"
+#include "SD_MMC.h"
 
 void handleSerialCommands() {
     if (Serial.available()) {
@@ -122,7 +122,7 @@ void handleSerialCommands() {
 void listSDFiles() {
     DEBUG("=== SD Card Files ===");
     
-    File root = SD.open("/");
+    File root = SD_MMC.open("/");
     if (!root) {
         DEBUG("Failed to open root directory");
         return;
@@ -172,7 +172,7 @@ void showFileInfo(const char* filename) {
     DEBUG("=== File Information ===");
     DEBUGF("Filename: %s\n", filepath.c_str());
     
-    File file = SD.open(filepath.c_str());
+    File file = SD_MMC.open(filepath.c_str());
     if (!file) {
         DEBUG("File not found or cannot be opened");
         return;
